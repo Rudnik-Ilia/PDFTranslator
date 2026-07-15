@@ -1,0 +1,47 @@
+[project]
+name = "pdf-scidoc-translator"
+version = "0.1.0"
+description = "Local PDF-only English-to-Russian scientific document translator"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.12.5",
+    "pydantic>=2.8.2",
+    "pydantic-settings>=2.4.0",
+    "sqlalchemy>=2.0.32",
+    "pymupdf>=1.24.9",
+    "jinja2>=3.1.4",
+    "httpx>=0.27.2",
+    "langgraph>=0.2.28",
+    "reportlab>=4.2.2",
+    "typing-extensions>=4.12.2",
+]
+
+[project.scripts]
+pdf-scidoc-translator = "app.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.2",
+    "ruff>=0.6.4",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

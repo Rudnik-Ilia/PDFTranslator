@@ -1,0 +1,1 @@
+"""pdf-scidoc-translator package."""
