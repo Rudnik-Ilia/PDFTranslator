@@ -3,7 +3,7 @@ from typing import Annotated
 
 import typer
 
-from app.core.config import LLMConfig, PipelineConfig
+from app.core.config import Configuration, LLMConfig, PipelineConfig
 from app.core.logging import configure_logging
 from app.db.repository import Repository
 from app.db.session import create_session_factory, session_scope
@@ -25,7 +25,7 @@ def root() -> None:
 @app.command()
 def translate(
     input: Annotated[Path, typer.Option("--input", "-i", help="Input text-based English PDF.")],
-    output: Annotated[Path, typer.Option("--output", "-o", help="Output/job directory.")],
+    output: Annotated[Path, typer.Option("--output", "-o", help="Output directory for translated PDF.")],
     backend: Annotated[str, typer.Option(help="LLM backend. MVP supports llama_cpp OpenAI-compatible API.")] = "llama_cpp",
     base_url: Annotated[str, typer.Option(help="OpenAI-compatible base URL, e.g. http://localhost:8888/v1")] = "http://localhost:8888/v1",
     model: Annotated[str, typer.Option(help="Model name sent to OpenAI-compatible API.")] = "local-model",
@@ -44,7 +44,7 @@ def translate(
     configure_logging(verbose)
     if backend != "llama_cpp":
         raise typer.BadParameter("MVP supports only backend=llama_cpp")
-    config = PipelineConfig(
+    config: Configuration = PipelineConfig(
         input_pdf_path=input,
         output_dir=output,
         max_chunk_chars=max_chunk_chars,
@@ -53,15 +53,7 @@ def translate(
         reset_chunks=reset_chunks,
         enable_post_edit=enable_post_edit,
         enable_meaning_check=enable_meaning_check,
-        llm=LLMConfig(
-            backend=backend,
-            base_url=base_url,
-            model=model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            timeout=timeout,
-        ),
-    )
+        llm=LLMConfig(backend=backend, base_url=base_url, model=model, temperature=temperature, max_tokens=max_tokens, timeout=timeout))
     try:
         final_state = PDFTranslationPipeline(config).run()
     except PipelineError as exc:
@@ -81,10 +73,7 @@ def translate(
 @app.command()
 def export(
     output: Annotated[Path, typer.Option("--output", "-o", help="Existing output/job directory containing project_state.sqlite.")],
-    include_missing_markers: Annotated[
-        bool,
-        typer.Option(help="Include visible placeholders for chunks that are not translated yet."),
-    ] = True,
+    include_missing_markers: Annotated[bool, typer.Option(help="Include visible placeholders for chunks that are not translated yet.")] = True,
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Enable debug logging.")] = False,
 ) -> None:
     """Generate translated_ru.txt and translated_ru.pdf from the current SQLite state."""
@@ -106,19 +95,8 @@ def export(
                 item.placeholder: item.original_text
                 for item in repo.placeholders_for_job(job.id)
             }
-            txt_path = write_translated_text_from_chunks(
-                output,
-                chunks,
-                include_missing_markers=include_missing_markers,
-                placeholder_map=placeholder_map,
-            )
-            pdf_path = write_translated_pdf_from_chunks(
-                output,
-                chunks,
-                include_missing_markers=include_missing_markers,
-                placeholder_map=placeholder_map,
-                title="Russian Translation Draft",
-            )
+            txt_path = write_translated_text_from_chunks(output, chunks, include_missing_markers=include_missing_markers, placeholder_map=placeholder_map)
+            pdf_path = write_translated_pdf_from_chunks(output, chunks, include_missing_markers=include_missing_markers, placeholder_map=placeholder_map, title="Russian Translation Draft")
             repo.add_output(job.id, "translated_text", txt_path)
             repo.add_output(job.id, "translated_pdf", pdf_path)
             translated = len([c for c in chunks if (c.edited_translation or c.raw_translation or "").strip()])

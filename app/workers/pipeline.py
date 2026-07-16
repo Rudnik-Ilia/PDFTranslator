@@ -45,7 +45,7 @@ class PDFTranslationPipeline:
         self.session_factory = create_session_factory(config.output_dir)
         self.graph = self._build_graph()
 
-    def run(self) -> PipelineState:
+    def run(self) -> dict:
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
         with session_scope(self.session_factory) as session:
             repo = Repository(session)
@@ -96,14 +96,8 @@ class PDFTranslationPipeline:
         graph.add_edge("classify_blocks", "protect_placeholders")
         graph.add_edge("protect_placeholders", "extract_glossary")
         graph.add_edge("extract_glossary", "build_chunks")
-        graph.add_conditional_edges(
-            "build_chunks",
-            self._after_build_chunks,
-            {"translate": "translate_chunk", "outputs": "rebuild_pdf"},
-        )
-        graph.add_conditional_edges(
-            "translate_chunk",
-            self._after_translation,
+        graph.add_conditional_edges("build_chunks", self._after_build_chunks, {"translate": "translate_chunk", "outputs": "rebuild_pdf"})
+        graph.add_conditional_edges("translate_chunk", self._after_translation,
             {
                 "validate": "validate_chunk",
                 "retry": "retry_or_split_chunk",
@@ -111,9 +105,7 @@ class PDFTranslationPipeline:
                 "outputs": "rebuild_pdf",
             },
         )
-        graph.add_conditional_edges(
-            "validate_chunk",
-            self._after_validation,
+        graph.add_conditional_edges("validate_chunk", self._after_validation,
             {
                 "retry": "retry_or_split_chunk",
                 "meaning_check": "meaning_check_chunk",
@@ -124,17 +116,9 @@ class PDFTranslationPipeline:
         )
         graph.add_edge("retry_or_split_chunk", "translate_chunk")
         graph.add_edge("meaning_check_chunk", "terminology_check_chunk")
-        graph.add_conditional_edges(
-            "terminology_check_chunk",
-            self._after_optional_checks,
-            {"post_edit": "russian_academic_post_edit", "next_chunk": "translate_chunk", "outputs": "rebuild_pdf"},
-        )
+        graph.add_conditional_edges("terminology_check_chunk",self._after_optional_checks, {"post_edit": "russian_academic_post_edit", "next_chunk": "translate_chunk", "outputs": "rebuild_pdf"})
         graph.add_edge("russian_academic_post_edit", "final_validate_chunk")
-        graph.add_conditional_edges(
-            "final_validate_chunk",
-            self._after_final_validation,
-            {"next_chunk": "translate_chunk", "outputs": "rebuild_pdf"},
-        )
+        graph.add_conditional_edges("final_validate_chunk",self._after_final_validation, {"next_chunk": "translate_chunk", "outputs": "rebuild_pdf"})
         graph.add_edge("rebuild_pdf", "generate_bilingual_review")
         graph.add_edge("generate_bilingual_review", "generate_quality_report")
         graph.add_edge("generate_quality_report", "finish_job")
@@ -337,13 +321,8 @@ class PDFTranslationPipeline:
                 item.placeholder: item.original_text
                 for item in repo.placeholders_for_job(state["job_id"])
             }
-            txt_path = write_translated_text_from_chunks(
-                Path(state["output_dir"]),
-                chunks,
-                placeholder_map=placeholder_map,
-            )
-            pdf_path = write_translated_pdf_from_chunks(
-                Path(state["output_dir"]),
+            txt_path = write_translated_text_from_chunks(Path(state["output_dir"]), chunks, placeholder_map=placeholder_map)
+            pdf_path = write_translated_pdf_from_chunks(Path(state["output_dir"]),
                 chunks,
                 placeholder_map=placeholder_map,
             )

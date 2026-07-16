@@ -3,7 +3,10 @@ from pathlib import Path
 from pydantic import BaseModel, Field, HttpUrl
 
 
-class LLMConfig(BaseModel):
+class Configuration(BaseModel):
+    ...
+
+class LLMConfig(Configuration):
     backend: str = "llama_cpp"
     base_url: HttpUrl | str = Field(default="http://10.100.102.5:8888/v1")
     model: str = "local-model"
@@ -13,7 +16,7 @@ class LLMConfig(BaseModel):
     max_retries: int = 2
 
 
-class PipelineConfig(BaseModel):
+class PipelineConfig(Configuration):
     input_pdf_path: Path
     output_dir: Path
     llm: LLMConfig
