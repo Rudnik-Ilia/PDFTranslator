@@ -59,7 +59,13 @@ def write_translated_text(output_dir: Path, translations: list[str]) -> Path:
     return path
 
 
-def write_translated_text_from_chunks(output_dir: Path, chunks: list[Chunk] | list[TranslationChunkLike],*,include_missing_markers: bool = True, placeholder_map: dict[str, str] | None = None) -> Path:
+def write_translated_text_from_chunks(
+    output_dir: Path,
+    chunks: list[Chunk] | list[TranslationChunkLike],
+    *,
+    include_missing_markers: bool = True,
+    placeholder_map: dict[str, str] | None = None,
+) -> Path:
     path = output_dir / "translated_ru.txt"
     parts: list[str] = []
     for chunk in chunks:

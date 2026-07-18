@@ -12,7 +12,7 @@ from app.output.pdf_builder import (
     write_translated_text_from_chunks,
 )
 from app.pdf.analyzer import SCANNED_PDF_MESSAGE
-from app.workers.pipeline import PDFTranslationPipeline, PipelineError
+from app.pipeline.main_pipeline import PDFTranslationPipeline, PipelineError
 
 app = typer.Typer(help="PDF-only English-to-Russian scientific document translator.", no_args_is_help=True)
 
@@ -27,14 +27,14 @@ def translate(
     input: Annotated[Path, typer.Option("--input", "-i", help="Input text-based English PDF.")],
     output: Annotated[Path, typer.Option("--output", "-o", help="Output directory for translated PDF.")],
     backend: Annotated[str, typer.Option(help="LLM backend. MVP supports llama_cpp OpenAI-compatible API.")] = "llama_cpp",
-    base_url: Annotated[str, typer.Option(help="OpenAI-compatible base URL, e.g. http://localhost:8888/v1")] = "http://localhost:8888/v1",
-    model: Annotated[str, typer.Option(help="Model name sent to OpenAI-compatible API.")] = "local-model",
+    base_llm_url: Annotated[str, typer.Option(help="OpenAI-compatible base URL, e.g. http://localhost:8888/v1")] = "http://localhost:8888/v1",
+    model_name: Annotated[str, typer.Option(help="Model name sent to OpenAI-compatible API.")] = "local-model",
     temperature: Annotated[float, typer.Option(help="LLM temperature.")] = 0.1,
-    max_tokens: Annotated[int, typer.Option(help="Maximum output tokens per request.")] = 4096,
+    max_tokens: Annotated[int, typer.Option(help="Maximum output tokens per request.")] = 8192,
     timeout: Annotated[float, typer.Option(help="LLM request timeout in seconds.")] = 120.0,
     max_translation_attempts: Annotated[int, typer.Option(help="Maximum attempts per chunk before needs_review.")] = 3,
     max_consecutive_llm_errors: Annotated[int, typer.Option(help="Abort after this many consecutive LLM transport failures/timeouts.")] = 5,
-    max_chunk_chars: Annotated[int, typer.Option(help="Approximate maximum protected characters per chunk.")] = 4500,
+    max_chunk_chars: Annotated[int, typer.Option(help="Approximate maximum protected characters per chunk.")] = 4096,
     reset_chunks: Annotated[bool, typer.Option(help="Delete existing chunks/placeholders and rebuild them with current chunk settings.")] = False,
     enable_post_edit: Annotated[bool, typer.Option(help="Run optional Russian academic post-editing stage.")] = False,
     enable_meaning_check: Annotated[bool, typer.Option(help="Run optional LLM meaning check for validated chunks.")] = False,
@@ -53,26 +53,26 @@ def translate(
         reset_chunks=reset_chunks,
         enable_post_edit=enable_post_edit,
         enable_meaning_check=enable_meaning_check,
-        llm=LLMConfig(backend=backend, base_url=base_url, model=model, temperature=temperature, max_tokens=max_tokens, timeout=timeout))
+        llm=LLMConfig(backend=backend, base_url=base_llm_url, model=model_name, temperature=temperature, max_tokens=max_tokens, timeout=timeout))
     try:
         final_state = PDFTranslationPipeline(config).run()
     except PipelineError as exc:
         if str(exc) == SCANNED_PDF_MESSAGE:
             typer.echo(SCANNED_PDF_MESSAGE, err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(f"Pipeline failed: {exc}", err=True)
+        typer.echo(f"Main pipeline failed: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     except Exception as exc:
-        typer.echo(f"Pipeline failed unexpectedly: {exc}", err=True)
+        typer.echo(f"Main pipeline failed unexpectedly: {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    typer.echo("Translation pipeline finished.")
+    typer.echo("Main pipeline finished.")
     for kind, path in final_state.get("final_outputs", {}).items():
         typer.echo(f"{kind}: {path}")
 
 
 @app.command()
 def export(
-    output: Annotated[Path, typer.Option("--output", "-o", help="Existing output/job directory containing project_state.sqlite.")],
+    output: Annotated[Path, typer.Option("--output", "-o", help="Output directory for translated PDF.")],
     include_missing_markers: Annotated[bool, typer.Option(help="Include visible placeholders for chunks that are not translated yet.")] = True,
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Enable debug logging.")] = False,
 ) -> None:

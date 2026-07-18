@@ -13,6 +13,7 @@ from app.db.repository import Repository
 from app.db.session import create_session_factory, session_scope
 from app.glossary.builder import write_glossary_csv
 from app.glossary.extractor import extract_term_candidates
+from app.llm.llm_client import LLMClientError
 from app.output.html_review import generate_bilingual_review_placeholder
 from app.output.pdf_builder import (
     write_translated_pdf_from_chunks,
@@ -24,13 +25,12 @@ from app.pdf.classifier import classify_block
 from app.pdf.cleaner import detect_header_footer_blocks
 from app.pdf.extractor import extract_blocks
 from app.pdf.reading_order import resolve_page_orders
+from app.pipeline.state import PipelineState
 from app.translation.chunker import build_chunks
-from app.translation.llm_client import LLMClientError
 from app.translation.post_editor import post_edit_translation
 from app.translation.translator import translate_chunk
 from app.validation.deterministic import validate_translation
 from app.validation.retry import retry_reason, should_retry
-from app.workers.state import PipelineState
 
 logger = logging.getLogger(__name__)
 
@@ -212,12 +212,7 @@ class PDFTranslationPipeline:
             next_chunk = repo.next_pending_chunk(state["job_id"])
             state["current_chunk_id"] = next_chunk.id if next_chunk else None
             state["retry_count"] = next_chunk.retry_count if next_chunk else 0
-            logger.info(
-                "Prepared %s chunks; %s already complete; next chunk: %s",
-                state["chunks_total"],
-                state["chunks_done"],
-                state["current_chunk_id"],
-            )
+            logger.info("Prepared %s chunks; %s already complete; next chunk: %s", state["chunks_total"], state["chunks_done"], state["current_chunk_id"])
         return state
 
     def _translate_chunk(self, state: PipelineState) -> PipelineState:
@@ -231,19 +226,16 @@ class PDFTranslationPipeline:
             state["current_chunk_id"] = chunk.id
             state["retry_count"] = chunk.retry_count
             state["validation_errors"] = []
-            logger.info(
-                "Translating chunk %s/%s pages %s-%s attempt %s",
-                chunk.chunk_index,
-                state.get("chunks_total", 0),
-                chunk.page_start,
-                chunk.page_end,
-                chunk.retry_count + 1,
-            )
+
+            logger.info("Translating chunk %s/%s pages %s-%s attempt %s", chunk.chunk_index, state.get("chunks_total", 0), chunk.page_start, chunk.page_end, chunk.retry_count + 1)                     # logger
+
             try:
                 translation = translate_chunk(chunk, self.config.llm, strict_retry=chunk.retry_count > 0)
             except LLMClientError as exc:
-                error = f"llm_error:{exc}"
-                logger.warning("Chunk %s translation failed: %s", chunk.id, exc)
+                error: str = f"llm_error:{exc}"
+
+                logger.warning("Chunk %s translation failed: %s", chunk.id, exc)                                                                                                                         # logger
+
                 repo.update_chunk_validation(chunk.id, "needs_retry", [error])
                 state["validation_errors"] = [error]
                 state["consecutive_llm_errors"] = state.get("consecutive_llm_errors", 0) + 1
@@ -263,9 +255,9 @@ class PDFTranslationPipeline:
             state["validation_errors"] = result.errors
             state["retry_count"] = chunk.retry_count
             if result.passed:
-                logger.info("Validated chunk %s/%s", chunk.chunk_index, state.get("chunks_total", 0))
+                logger.info("Validated chunk %s/%s", chunk.chunk_index, state.get("chunks_total", 0))                                                                                                   # logger
             else:
-                logger.warning("Validation failed for chunk %s: %s", chunk.chunk_index, result.errors)
+                logger.warning("Validation failed for chunk %s: %s", chunk.chunk_index, result.errors)                                                                                                  # logger
         return state
 
     def _retry_or_split_chunk(self, state: PipelineState) -> PipelineState:
@@ -384,10 +376,8 @@ class PDFTranslationPipeline:
             return "validate"
         if state.get("consecutive_llm_errors", 0) >= self.config.max_consecutive_llm_errors:
             raise PipelineError(
-                "Too many consecutive local LLM failures/timeouts. "
-                f"Stopped after {state['consecutive_llm_errors']} consecutive errors. "
-                "Try --timeout 600, --max-chunk-chars 1500, and --reset-chunks, "
-                "or check that the llama.cpp server is healthy."
+                f"""Too many consecutive local LLM failures/timeouts. Stopped after {state['consecutive_llm_errors']} consecutive errors.
+                Try --timeout 600, --max-chunk-chars 1500, and --reset-chunks, or check that the llama.cpp server is healthy."""
             )
         if should_retry(errors, state.get("retry_count", 0), self.config.max_translation_attempts):
             return "retry"

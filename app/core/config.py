@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from pydantic import BaseModel, Field, HttpUrl
+from pydantic.types import SecretStr
 
 
 class Configuration(BaseModel):
@@ -14,6 +15,7 @@ class LLMConfig(Configuration):
     max_tokens: int = 4096
     timeout: float = 120.0
     max_retries: int = 2
+    openrouter_api_key: SecretStr = SecretStr("")
 
 
 class PipelineConfig(Configuration):

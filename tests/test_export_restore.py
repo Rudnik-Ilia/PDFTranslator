@@ -27,27 +27,13 @@ def test_text_export_restores_placeholders(tmp_path: Path) -> None:
             source_text="Text (42).",
         )
     ]
-    path = write_translated_text_from_chunks(
-        tmp_path,
-        chunks,
-        placeholder_map={"⟦NUMBER_001⟧": "42"},
-    )
+    path = write_translated_text_from_chunks(tmp_path, chunks, placeholder_map={"⟦NUMBER_001⟧": "42"})
     assert "⟦NUMBER_001⟧" not in path.read_text(encoding="utf-8")
     assert "Текст (42)." in path.read_text(encoding="utf-8")
 
 
 def test_text_export_marks_broken_placeholders(tmp_path: Path) -> None:
-    chunks = [
-        FakeChunk(
-            chunk_index=1,
-            page_start=1,
-            page_end=1,
-            status="needs_review",
-            raw_translation="Текст ⟦NUMBER",
-            edited_translation=None,
-            source_text="Text 42",
-        )
-    ]
+    chunks = [FakeChunk(chunk_index=1, page_start=1, page_end=1, status="needs_review", raw_translation="Текст ⟦NUMBER", edited_translation=None, source_text="Text 42")]
     path = write_translated_text_from_chunks(tmp_path, chunks, placeholder_map={})
     text = path.read_text(encoding="utf-8")
     assert "⟦NUMBER" not in text

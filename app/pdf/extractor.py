@@ -43,7 +43,7 @@ def extract_blocks(path: Path) -> list[dict]:
         for page_index, page in enumerate(doc, start=1):
             data = page.get_text("dict")
             blocks = data.get("blocks", [])
-            order = 0
+            order: int = 0
             for block in blocks:
                 if block.get("type") != 0:
                     continue

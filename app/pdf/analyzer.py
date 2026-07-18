@@ -22,8 +22,4 @@ def analyze_pdf(path: Path, min_text_chars: int = 200, sample_pages: int = 5) ->
         for page in doc[: min(sample_pages, page_count)]:
             text_parts.append(page.get_text("text"))
     sampled_chars = len("\n".join(text_parts).strip())
-    return PDFAnalysis(
-        page_count=page_count,
-        sampled_text_chars=sampled_chars,
-        is_text_based=sampled_chars >= min_text_chars,
-    )
+    return PDFAnalysis(page_count=page_count, sampled_text_chars=sampled_chars, is_text_based=sampled_chars >= min_text_chars)

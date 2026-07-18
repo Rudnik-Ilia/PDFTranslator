@@ -1,14 +1,14 @@
 from app.core.config import LLMConfig
 from app.db.models import Chunk
-from app.translation.llm_client import OpenAICompatibleClient
-from app.translation.prompts import (
+from app.llm.llm_client import OpenAICompatibleClient
+from app.llm.prompts import (
     STRICT_RETRY_SUFFIX,
     TRANSLATION_SYSTEM_PROMPT,
     TRANSLATION_USER_PROMPT,
 )
 
 
-def translate_chunk(chunk: Chunk, llm_config: LLMConfig, *, strict_retry: bool = False) -> str:
+def translate_chunk(chunk: Chunk, llm_config: LLMConfig, *, strict_retry: bool = False) -> str | None:
     client = OpenAICompatibleClient(llm_config)
     prompt = TRANSLATION_USER_PROMPT.format(
         domain="scientific and technical book",

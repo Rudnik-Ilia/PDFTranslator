@@ -32,3 +32,23 @@ STRICT_RETRY_SUFFIX = """
 
 Previous attempt failed validation. Strictly preserve every placeholder token exactly as written. Return only the corrected Russian translation.
 """
+
+MEANING_CHECK_PROMPT = """Compare English source and Russian translation.
+
+Find only serious issues:
+* omitted information
+* added information
+* changed meaning
+* wrong negation
+* wrong quantity
+* wrong relation
+* mistranslated scientific term
+
+Return JSON with has_critical_issue and issues.
+
+English:
+{source_text}
+
+Russian:
+{translation}
+"""
